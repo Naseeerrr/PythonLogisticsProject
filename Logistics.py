@@ -15,12 +15,7 @@ conn = sqlite3.connect('ksu_logistics.db')
 cursor = conn.cursor()
 
 # Ensure otp_secret column exists in the users table
-try:
-    cursor.execute("ALTER TABLE users ADD COLUMN otp_secret TEXT")
-    conn.commit()
-except sqlite3.OperationalError as e:
-    if "duplicate column name" in str(e):
-        print("Column otp_secret already exists.")
+
 
 # Hash Password Utility
 def hash_password(password):
@@ -367,9 +362,46 @@ def user_window(user_id):
 
     Button(user_root, text="Drop Package", command=drop_package).grid(row=4, column=1, pady=20)
 
+    Button(user_root, text="View All Packages", command=lambda: view_packages(user_root, user_id)).grid(row=5, column=1,
+                                                                                                        pady=10)
+
     user_root.mainloop()
 
-# Courier Window
+# Connect to SQLite database
+conn = sqlite3.connect('ksu_logistics.db')
+cursor = conn.cursor()
+def view_packages(user_root, user_id):
+    # Fetch all packages for the user from the database
+    cursor.execute("""
+    SELECT tracking_number, dimensions, weight, status, logistics_office_id, timestamp
+    FROM packages
+    WHERE sender_id = ?
+    """, (user_id,))
+    packages = cursor.fetchall()
+
+    if not packages:
+        messagebox.showinfo("No Packages", "You have no packages!")
+        return
+
+    # Create a new window to display packages
+    view_window = Toplevel(user_root)
+    view_window.title("Your Packages")
+    view_window.geometry("600x400")
+
+    # Create a listbox to display package details
+    package_listbox = Listbox(view_window, width=80, height=15)
+    package_listbox.pack(pady=20)
+
+    # Add headers to the listbox
+    package_listbox.insert(END, f"{'Tracking Number':<20}{'Dimensions':<20}{'Weight':<10}{'Status':<15}{'Office ID':<15}{'Timestamp':<20}")
+    package_listbox.insert(END, "-" * 100)
+
+    # Add package details to the listbox
+    for package in packages:
+        package_listbox.insert(END, f"{package[0]:<20}{package[1]:<20}{package[2]:<10}{package[3]:<15}{package[4]:<15}{package[5]:<20}")
+
+
+# Courier Window with Map Integration
 def courier_window():
     def update_status(status):
         tracking_number = entry_tracking_number.get()
@@ -403,47 +435,65 @@ def courier_window():
             conn.commit()
             messagebox.showinfo("Success", f"Package status updated to '{status}'!")
 
+            # Hardcoded GPS coordinates for source and destination offices
+            office_coordinates = {
+                "Main Campus Office": (24.7136, 46.6753),  # Example: Riyadh GPS coordinates
+                "North Campus Office": (24.7408, 46.6523),
+                "South Campus Office": (24.6788, 46.7123),
+                "Destination Campus Office": (24.7254, 46.6557)  # Example destination office
+            }
+
             # Display the map
-            display_map(source_office_name, "Destination Campus Office")
+            display_map(source_office_name, "Destination Campus Office", office_coordinates)
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def display_map(source_name, destination_name):
-     # Define hardcoded GPS coordinates for known locations
-     office_coordinates = {
-        "Main Campus Office": (24.7136, 46.6753),  # Example: Riyadh coordinates
-        "North Campus Office": (24.7408, 46.6523),
-        "South Campus Office": (24.6788, 46.7123),
-        "Destination Campus Office": (24.7254, 46.6557)  # Add as required
-    }
+    def display_map(source_name, destination_name, office_coordinates):
+        # Open a new window for the map
+        map_root = Toplevel()
+        map_root.title("Package Location Map")
+        map_root.geometry("800x600")
 
-     # Open a new window for the map
-     map_root = Toplevel()
-     map_root.title("Package Location Map")
-     map_root.geometry("800x600")
+        # Add the map widget
+        map_widget = TkinterMapView(map_root, width=800, height=600, corner_radius=0)
+        map_widget.pack(fill="both", expand=True)
 
-     # Add the map widget
-     map_widget = TkinterMapView(map_root, width=800, height=600, corner_radius=0)
-     map_widget.pack(fill="both", expand=True)
+        try:
+            # Fetch coordinates for the source and destination
+            source_coords = office_coordinates.get(source_name)
+            destination_coords = office_coordinates.get(destination_name)
 
-     try:
-        # Fetch coordinates for the source and destination
-        source_coords = office_coordinates.get(source_name)
-        destination_coords = office_coordinates.get(destination_name)
+            if not source_coords or not destination_coords:
+                raise ValueError("One or both locations have no GPS coordinates.")
 
-        if not source_coords or not destination_coords:
-            raise ValueError("One or both locations have no GPS coordinates.")
+            # Set initial position of the map (center it on the source location)
+            map_widget.set_position(source_coords[0], source_coords[1],
+                                    zoom=12)  # Set the zoom level (12 for medium zoom)
 
-        # Set markers at the source and destination
-        map_widget.set_marker(source_coords[0], source_coords[1], text=source_name)
-        map_widget.set_marker(destination_coords[0], destination_coords[1], text=destination_name)
+            # Set markers at the source and destination
+            map_widget.set_marker(source_coords[0], source_coords[1], text=source_name)
+            map_widget.set_marker(destination_coords[0], destination_coords[1], text=destination_name)
 
-        # Draw a path between the source and destination
-        map_widget.set_path([source_coords, destination_coords])
+            # Draw a path between the source and destination
+            map_widget.set_path([source_coords, destination_coords])
 
-     except Exception as e:
-        messagebox.showerror("Error", f"Unable to display map: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unable to display map: {e}")
+
+    # Courier Window GUI
+    courier_root = Tk()
+    courier_root.title("KSU Logistics - Courier")
+    courier_root.geometry("400x300")
+
+    Label(courier_root, text="Tracking Number").grid(row=0, column=0, padx=10, pady=10)
+    entry_tracking_number = Entry(courier_root)
+    entry_tracking_number.grid(row=0, column=1)
+
+    Button(courier_root, text="Mark as Accepted", command=lambda: update_status("Accepted")).grid(row=1, column=1, pady=10)
+    Button(courier_root, text="Mark as Delivered", command=lambda: update_status("Delivered")).grid(row=2, column=1, pady=10)
+
+    courier_root.mainloop()
 
     # Courier Window GUI
     courier_root = Tk()

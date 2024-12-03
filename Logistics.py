@@ -36,7 +36,6 @@ def main_window():
     main_root = Tk()
     main_root.title("KSU Logistics - Main Menu")
     main_root.geometry("400x300")
-    main_root.configure(bg="#f0f8ff")  # Light blue background
 
     # Title
     Label(
@@ -493,22 +492,6 @@ def courier_window():
     Button(courier_root, text="Mark as Accepted", command=lambda: update_status("Accepted")).grid(row=1, column=1, pady=10)
     Button(courier_root, text="Mark as Delivered", command=lambda: update_status("Delivered")).grid(row=2, column=1, pady=10)
 
-    courier_root.mainloop()
-
-    # Courier Window GUI
-    courier_root = Tk()
-    courier_root.title("KSU Logistics - Courier")
-    courier_root.geometry("400x300")
-
-    Label(courier_root, text="Tracking Number").grid(row=0, column=0, padx=10, pady=10)
-    entry_tracking_number = Entry(courier_root)
-    entry_tracking_number.grid(row=0, column=1)
-
-    Button(courier_root, text="Mark as Accepted", command=lambda: update_status("Accepted")).grid(row=1, column=1, pady=10)
-    Button(courier_root, text="Mark as Delivered", command=lambda: update_status("Delivered")).grid(row=2, column=1, pady=10)
-# 7502535254196661
-# 4441005469
-# 4441005555
     courier_root.mainloop()
 
 # Start the Main Window

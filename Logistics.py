@@ -36,7 +36,6 @@ def main_window():
     main_root = Tk()
     main_root.title("KSU Logistics - Main Menu")
     main_root.geometry("400x300")
-    main_root.configure(bg="#f0f8ff")  # Light blue background
 
     # Title
     Label(
